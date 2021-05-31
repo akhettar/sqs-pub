@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -21,6 +22,7 @@ type SQSReplayConfig struct {
 	from             string
 	to               string
 	deleteFromSource bool
+	dryrun           bool
 	filters          string
 }
 
@@ -36,66 +38,89 @@ func (s *SQSReplayer) replay(ctx context.Context, args []string) error {
 	// Fetch the urls for the given queues
 	fromQueue, toQueue := s.fetchQueueUrl(s.cfg.from, s.cfg.to)
 
-	// Create report files
-	preport := createReportFile("processed.log")
-	failedReport := createReportFile("failed.log")
-	filtered := createReportFile("filtered.log")
+	processedBody := []string{}
+	failedBody := []string{}
+	filteredBody := []string{}
 
-	defer preport.Close()
-	defer failedReport.Close()
-	defer filtered.Close()
+	messages := map[string]*[]string{"processed": &processedBody, "failed": &failedBody, "filtered": &filteredBody}
 
 	// Fetch all the messages from the source queue and publish them to the destination queue
-	processed := 0
-	failureToReadFromQueue := 0
-	for {
+	numOfMessags := s.fetchNumberOfMessages(fromQueue)
+
+	for i := 0; i < numOfMessags; i++ {
 
 		msgResult, err := s.read(fromQueue)
 
 		if err != nil {
 			log.Printf("failed to read from the queue: %v", err)
-			failureToReadFromQueue++
-		}
-
-		if len(msgResult.Messages) == 0 || failureToReadFromQueue > 20 {
-			log.Println("\n no more messages in the queue to replay")
-			break
 		}
 
 		for _, msg := range msgResult.Messages {
 
 			if !s.filter(msg.Body) {
-				log.Printf("Processing message: %d with id %s\n", processed, *msg.MessageId)
+				log.Printf("Processing message: %d with id %s\n", len(processedBody), *msg.MessageId)
 
 				if err := s.send(toQueue, *msg.Body); err != nil {
-					log.Printf("failed to send message: %s", *msg.Body)
-					failedReport.WriteString(*msg.MessageId)
-					failedReport.WriteString(*msg.Body)
-					failedReport.WriteString("\n\n")
 
+					log.Printf("failed to send message: %s", *msg.Body)
+					failedBody = append(failedBody, *msg.Body)
 				} else {
-					preport.WriteString(*msg.MessageId)
-					preport.WriteString(*msg.Body)
-					preport.WriteString("\n\n")
+					processedBody = append(processedBody, *msg.Body)
 					if s.cfg.deleteFromSource {
 						if err := s.delete(fromQueue, *msg.ReceiptHandle); err != nil {
 							log.Printf("failed to delete message with id %s", *msg.MessageId)
 						}
 					}
 				}
-				processed++
 			} else {
 				log.Printf("Message with message id filtered: %s", *msg.MessageId)
-				filtered.WriteString(*msg.MessageId)
-				filtered.WriteString(*msg.Body)
-				filtered.WriteString("\n\n")
+				filteredBody = append(filteredBody, *msg.Body)
 			}
 
 		}
 	}
-	log.Printf("number of messages processed %d", processed)
-	log.Printf("number of messages failed to be processed %d", failureToReadFromQueue)
+
+	log.Printf("number of messages processed %d", len(processedBody))
+	log.Printf("number of messages filtered %d", len(filteredBody))
+	log.Printf("number of messages failed %d", len(failedBody))
+
+	// generating the reports
+	generateReport(messages)
 	return nil
+}
+
+func generateReport(messages map[string]*[]string) {
+	for n, msg := range messages {
+		if len(*msg) > 0 {
+			pfile := createReportFile(fmt.Sprintf("%s.log", n))
+			defer pfile.Close()
+			for _, body := range *msg {
+				pfile.WriteString(body)
+				pfile.WriteString("\n")
+				pfile.WriteString("-----------------------------------------------------\n")
+				pfile.WriteString("\n\n")
+			}
+			log.Printf("%s.log report generated", n)
+		}
+	}
+}
+
+func (s *SQSReplayer) fetchNumberOfMessages(queue string) int {
+	svc := sqs.New(s.sess)
+	numOfMessags := "ApproximateNumberOfMessages"
+	result, err := svc.GetQueueAttributes(&sqs.GetQueueAttributesInput{QueueUrl: &queue, AttributeNames: []*string{&numOfMessags}})
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	num, err := strconv.Atoi(*result.Attributes[numOfMessags])
+
+	if err != nil {
+		log.Fatalf("failed to retrieve the number of messages present in the source queue, %v", err)
+	}
+	log.Printf("found %d messages in the source queue %s", num, queue)
+	return num
 }
 
 func (s *SQSReplayer) filter(body *string) bool {
@@ -151,25 +176,31 @@ func (s *SQSReplayer) read(queue string) (*sqs.ReceiveMessageOutput, error) {
 		QueueUrl:            &queue,
 		MaxNumberOfMessages: aws.Int64(5),
 	})
+
 }
 
 func (s *SQSReplayer) send(queue string, body string) error {
-	svc := sqs.New(s.sess)
-	_, err := svc.SendMessage(&sqs.SendMessageInput{
+	if !s.cfg.dryrun {
+		svc := sqs.New(s.sess)
+		_, err := svc.SendMessage(&sqs.SendMessageInput{
 
-		MessageBody: aws.String(body),
-		QueueUrl:    &queue,
-	})
-	return err
+			MessageBody: aws.String(body),
+			QueueUrl:    &queue,
+		})
+		return err
+	}
+	return nil
 }
 
 func (s *SQSReplayer) delete(queueURL string, receiptHandle string) error {
+	if !s.cfg.dryrun {
+		svc := sqs.New(s.sess)
 
-	svc := sqs.New(s.sess)
-
-	_, err := svc.DeleteMessage(&sqs.DeleteMessageInput{
-		QueueUrl:      &queueURL,
-		ReceiptHandle: &receiptHandle,
-	})
-	return err
+		_, err := svc.DeleteMessage(&sqs.DeleteMessageInput{
+			QueueUrl:      &queueURL,
+			ReceiptHandle: &receiptHandle,
+		})
+		return err
+	}
+	return nil
 }

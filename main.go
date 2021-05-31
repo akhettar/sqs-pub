@@ -15,10 +15,11 @@ var (
 )
 
 func init() {
-	rootFlagSet.StringVar(&replayer.cfg.from, "from", "vf-cm-dev-marketplace-emea-bi-deadletter-queue", "sqs queue from where messages will be sourced from")
-	rootFlagSet.StringVar(&replayer.cfg.to, "to", "vf-cm-dev-marketplace-emea-bi-orders", "sqs queue from where messages will be sourced from")
+	rootFlagSet.StringVar(&replayer.cfg.from, "from", "queue-name-source", "sqs queue from where messages will be sourced from")
+	rootFlagSet.StringVar(&replayer.cfg.to, "to", "queue-name-destination", "sqs queue from where messages will be sourced from")
 	rootFlagSet.StringVar(&replayer.cfg.filters, "filters", "10104211111292", "comma separted text that can be used a message body filter")
 	rootFlagSet.BoolVar(&replayer.cfg.deleteFromSource, "delete", true, "delete messages from source after successfuly pushed to destination queue")
+	rootFlagSet.BoolVar(&replayer.cfg.dryrun, "dryrun", false, "a flag to run the replay in dry run mode.")
 }
 
 func main() {
