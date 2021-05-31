@@ -42,5 +42,10 @@ export AWS_SESSION_TOKEN="IQoJxxxxxxxxx"
 ```
 ./sqs-pub -from=queue-name-source -to=queue-name-destination -filters=text1,text2
 
+```
+
+## Binary releases
+[Releases](https://github.com/akhettar/sqs-pub/releases)
+
 ## License
 [MIT](LICENSE)
