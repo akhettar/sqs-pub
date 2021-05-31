@@ -11,14 +11,14 @@ Below is the print of the following command: `./sqs-pub -help`, which describe t
 
 ```
 USAGE
-  sqs-pub [-from queue1 - to queue2 -filter text1,text2,...]
+  sqs_pub [-from queue1 - to queue2 -filter text1,text2,...]
 
 FLAGS
-  -delete true                                          delete messages from source after successfuly pushed to destination queue
-  -filters 10104211111292                               comma separted text that can be used a message body filter
-  -from vf-cm-dev-marketplace-emea-bi-deadletter-queue  sqs queue from where messages will be sourced from
-  -to vf-cm-dev-marketplace-emea-bi-orders              sqs queue from where messages will be sourced from
-
+  -delete true                delete messages from source after successfuly pushed to destination queue
+  -dryrun false               a flag to run the replay in dry run mode.
+  -filters 10104211111292     comma separted text that can be used a message body filter
+  -from queue-name-source     sqs queue from where messages will be sourced from
+  -to queue-name-destination  sqs queue where messages will be pushed to
 ```
 
 ## Flags
