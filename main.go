@@ -11,7 +11,7 @@ import (
 
 var (
 	rootFlagSet = flag.NewFlagSet("sqs-pub", flag.ExitOnError)
-	replayer    = NewSQSReplayer(SQSReplayConfig{})
+	replayer    = NewSQSMessageReplayer()
 )
 
 func init() {

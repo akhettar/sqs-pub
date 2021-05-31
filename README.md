@@ -1,5 +1,5 @@
-# SQS Messages replayer 
-
+# AWS SQS message replayer 
+[![main](https://github.com/akhettar/sqs-pub/actions/workflows/main.yml/badge.svg?branch=main)](https://github.com/akhettar/sqs-pub/actions/workflows/main.yml)
 ## Overview
 
 This is a simple tool that allows replaying messages from the AWS SQS DLQ. While the primary function of this tool is to replay messages present in the DLQ, it can also be used to push a message from one given queue to another regardless if the source queue is a DLQ or not.
@@ -7,7 +7,6 @@ This is a simple tool that allows replaying messages from the AWS SQS DLQ. While
 ## Usage
 
 Below is the print of the following command: `./sqs-pub -help`, which describe the usage of this tool
-
 
 ```
 USAGE

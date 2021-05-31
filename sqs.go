@@ -13,12 +13,14 @@ import (
 	"github.com/aws/aws-sdk-go/service/sqs"
 )
 
-type SQSReplayer struct {
+// SQSMessageReplayer type
+type SQSMessageReplayer struct {
 	sess *session.Session
-	cfg  SQSReplayConfig
+	cfg  SQSMessageReplayConfig
 }
 
-type SQSReplayConfig struct {
+// SQSMessageReplayConfig type
+type SQSMessageReplayConfig struct {
 	from             string
 	to               string
 	deleteFromSource bool
@@ -26,17 +28,20 @@ type SQSReplayConfig struct {
 	filters          string
 }
 
-func NewSQSReplayer(cfg SQSReplayConfig) *SQSReplayer {
+// NewSQSMessageReplayer creates an instace of the SQS Replayer
+func NewSQSMessageReplayer() *SQSMessageReplayer {
+
+	// Create Session
 	session := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	}))
-	return &SQSReplayer{sess: session, cfg: cfg}
+	return &SQSMessageReplayer{sess: session, cfg: SQSMessageReplayConfig{}}
 }
 
-func (s *SQSReplayer) replay(ctx context.Context, args []string) error {
+func (s *SQSMessageReplayer) replay(ctx context.Context, args []string) error {
 
 	// Fetch the urls for the given queues
-	fromQueue, toQueue := s.fetchQueueUrl(s.cfg.from, s.cfg.to)
+	fromQueue, toQueue := s.fetchQueueURL(s.cfg.from, s.cfg.to)
 
 	processedBody := []string{}
 	failedBody := []string{}
@@ -98,14 +103,14 @@ func generateReport(messages map[string]*[]string) {
 				pfile.WriteString(body)
 				pfile.WriteString("\n")
 				pfile.WriteString("-----------------------------------------------------\n")
-				pfile.WriteString("\n\n")
+				pfile.WriteString("\n")
 			}
 			log.Printf("%s.log report generated", n)
 		}
 	}
 }
 
-func (s *SQSReplayer) fetchNumberOfMessages(queue string) int {
+func (s *SQSMessageReplayer) fetchNumberOfMessages(queue string) int {
 	svc := sqs.New(s.sess)
 	numOfMessags := "ApproximateNumberOfMessages"
 	result, err := svc.GetQueueAttributes(&sqs.GetQueueAttributesInput{QueueUrl: &queue, AttributeNames: []*string{&numOfMessags}})
@@ -123,7 +128,7 @@ func (s *SQSReplayer) fetchNumberOfMessages(queue string) int {
 	return num
 }
 
-func (s *SQSReplayer) filter(body *string) bool {
+func (s *SQSMessageReplayer) filter(body *string) bool {
 	fmt.Printf("filters %v", s.cfg.filters)
 	if len(s.cfg.filters) > 0 {
 		for _, text := range strings.Split(s.cfg.filters, ",") {
@@ -144,7 +149,7 @@ func createReportFile(file string) *os.File {
 	return report
 }
 
-func (s *SQSReplayer) fetchQueueUrl(from, to string) (string, string) {
+func (s *SQSMessageReplayer) fetchQueueURL(from, to string) (string, string) {
 	svc := sqs.New(s.sess)
 	resultFrom, err := svc.GetQueueUrl(&sqs.GetQueueUrlInput{
 		QueueName: &from,
@@ -164,7 +169,7 @@ func (s *SQSReplayer) fetchQueueUrl(from, to string) (string, string) {
 
 	return *resultFrom.QueueUrl, *resultTo.QueueUrl
 }
-func (s *SQSReplayer) read(queue string) (*sqs.ReceiveMessageOutput, error) {
+func (s *SQSMessageReplayer) read(queue string) (*sqs.ReceiveMessageOutput, error) {
 	svc := sqs.New(s.sess)
 	return svc.ReceiveMessage(&sqs.ReceiveMessageInput{
 		AttributeNames: []*string{
@@ -179,7 +184,7 @@ func (s *SQSReplayer) read(queue string) (*sqs.ReceiveMessageOutput, error) {
 
 }
 
-func (s *SQSReplayer) send(queue string, body string) error {
+func (s *SQSMessageReplayer) send(queue string, body string) error {
 	if !s.cfg.dryrun {
 		svc := sqs.New(s.sess)
 		_, err := svc.SendMessage(&sqs.SendMessageInput{
@@ -192,7 +197,7 @@ func (s *SQSReplayer) send(queue string, body string) error {
 	return nil
 }
 
-func (s *SQSReplayer) delete(queueURL string, receiptHandle string) error {
+func (s *SQSMessageReplayer) delete(queueURL string, receiptHandle string) error {
 	if !s.cfg.dryrun {
 		svc := sqs.New(s.sess)
 
