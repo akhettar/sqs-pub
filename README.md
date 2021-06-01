@@ -10,7 +10,7 @@ Below is the print of the following command: `./sqs-pub -help`, which describe t
 
 ```
 USAGE
-  sqs_pub [-from queue1 - to queue2 -filter text1,text2,...]
+  sqs_pub [-from queue1 - to queue2 -filters text1,text2,...]
 
 FLAGS
   -delete true                delete messages from source after successfuly pushed to destination queue
